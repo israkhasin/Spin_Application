@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Name Picker - Team Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dbeafe 100%);
+        }
+        
+        /* Custom Scrollbar for the names pool */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* Pop animation for selected name */
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop {
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* Spinning blur effect */
+        .spinning-text {
+            filter: blur(1px);
+            opacity: 0.7;
+            transform: scale(0.95);
+            transition: all 0.1s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 sm:p-6 text-gray-800">
+
+    <div class="max-w-[1400px] w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Panel: Input & Pool -->
+        <div class="lg:col-span-3 bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border border-gray-100">
+            <div class="bg-indigo-600 p-5 text-white text-center">
+                <h2 class="text-xl font-bold flex justify-center items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    Main Pool
+                </h2>
+            </div>
+            
+            <div class="p-5 flex-1 flex flex-col gap-4">
+                <div>
+                    <textarea id="nameInput" rows="3" class="w-full rounded-xl border-gray-300 border p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none" placeholder="Enter names...&#10;One per line"></textarea>
+                </div>
+                
+                <button id="addBtn" class="w-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 font-semibold py-2.5 px-4 rounded-xl transition-colors duration-200 flex justify-center items-center gap-2 text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Add to Pool
+                </button>
+
+                <div class="mt-2 flex-1 flex flex-col min-h-[150px] lg:min-h-[300px]">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Available</h3>
+                        <span id="poolCount" class="bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs font-bold">0</span>
+                    </div>
+                    
+                    <!-- Names Container -->
+                    <div id="poolList" class="flex-1 bg-gray-50 rounded-xl p-3 border border-gray-100 overflow-y-auto custom-scrollbar flex flex-wrap gap-2 content-start max-h-[250px] lg:max-h-none">
+                        <div class="w-full h-full flex items-center justify-center text-gray-400 text-sm italic">
+                            Pool is empty
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Spinner & Action -->
+        <div class="lg:col-span-5 bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col items-center justify-center p-6 sm:p-10 border border-gray-100 relative">
+            
+            <div class="absolute top-[-50px] right-[-50px] w-40 h-40 bg-purple-200 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+            <div class="absolute bottom-[-50px] left-[-50px] w-40 h-40 bg-blue-200 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+
+            <div class="text-center w-full z-10 flex flex-col items-center">
+                
+                <!-- Turn Indicator -->
+                <div id="turnIndicatorBadge" class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold bg-blue-100 text-blue-700 mb-6 shadow-sm transition-all duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    <span id="turnIndicatorText" class="tracking-wide uppercase">Momo Team Turn</span>
+                </div>
+
+                <!-- Display Area -->
+                <div class="mb-10 min-h-[160px] flex items-center justify-center w-full">
+                    <div id="resultDisplay" class="text-4xl sm:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 text-center px-4 py-8 break-words max-w-full">
+                        Ready?
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="max-w-md mx-auto w-full space-y-4">
+                    <button id="spinBtn" disabled class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transform transition-all duration-200 hover:-translate-y-1 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex justify-center items-center gap-2 text-xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Spin / Pick Name
+                    </button>
+
+                    <div id="actionContainer" class="hidden flex-col sm:flex-row gap-3 w-full">
+                        <button id="cancelBtn" class="w-full sm:w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-2xl shadow-md transform transition-all duration-200 flex justify-center items-center gap-2 text-lg border border-gray-200">
+                            Cancel
+                        </button>
+                        <button id="confirmBtn" class="w-full sm:w-1/2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-2xl shadow-md transform transition-all duration-200 flex justify-center items-center gap-2 text-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="toast" class="absolute top-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium transform transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none z-50">
+                Message here
+            </div>
+        </div>
+
+        <!-- Right Panel: Teams -->
+        <div class="lg:col-span-4 flex flex-col gap-6 h-full">
+            
+            <!-- Team 1 -->
+            <div id="team1Container" class="flex-1 bg-white rounded-3xl shadow-lg overflow-hidden border-2 border-blue-400 ring-4 ring-blue-100 transform scale-[1.02] transition-all duration-300 flex flex-col min-h-[250px]">
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white flex justify-between items-center shadow-sm">
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-200" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
+                        Momo Team
+                    </h3>
+                    <span id="team1Count" class="bg-blue-700 px-2.5 py-1 rounded-lg text-xs font-bold shadow-inner">0</span>
+                </div>
+                <div class="p-4 flex-1 overflow-y-auto custom-scrollbar bg-blue-50/30">
+                    <ul id="team1List" class="space-y-2">
+                        <li class="text-gray-400 text-sm italic text-center mt-4">Waiting for draft...</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Team 2 -->
+            <div id="team2Container" class="flex-1 bg-white rounded-3xl shadow-sm overflow-hidden border border-emerald-100 opacity-70 transition-all duration-300 flex flex-col min-h-[250px]">
+                <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 p-4 text-white flex justify-between items-center shadow-sm">
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-200" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
+                        Shakib Team
+                    </h3>
+                    <span id="team2Count" class="bg-emerald-700 px-2.5 py-1 rounded-lg text-xs font-bold shadow-inner">0</span>
+                </div>
+                <div class="p-4 flex-1 overflow-y-auto custom-scrollbar bg-emerald-50/30">
+                    <ul id="team2List" class="space-y-2">
+                        <li class="text-gray-400 text-sm italic text-center mt-4">Waiting for draft...</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const nameInput = document.getElementById('nameInput');
+        const addBtn = document.getElementById('addBtn');
+        const poolList = document.getElementById('poolList');
+        const poolCount = document.getElementById('poolCount');
+        const spinBtn = document.getElementById('spinBtn');
+        const resultDisplay = document.getElementById('resultDisplay');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const actionContainer = document.getElementById('actionContainer');
+        const toast = document.getElementById('toast');
+
+        const turnIndicatorBadge = document.getElementById('turnIndicatorBadge');
+        const turnIndicatorText = document.getElementById('turnIndicatorText');
+        const team1Container = document.getElementById('team1Container');
+        const team2Container = document.getElementById('team2Container');
+        const team1List = document.getElementById('team1List');
+        const team2List = document.getElementById('team2List');
+        const team1Count = document.getElementById('team1Count');
+        const team2Count = document.getElementById('team2Count');
+
+        // State
+        let namesPool = [];
+        let team1 = [];
+        let team2 = [];
+        let currentTurn = 1; // 1 for Team 1, 2 for Team 2
+        let currentlyPickedName = null;
+        let isSpinning = false;
+
+        // Functions
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.remove('opacity-0', 'translate-y-[-20px]');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-[-20px]');
+            }, 3000);
+        }
+
+        function updateTurnUI() {
+            if (currentTurn === 1) {
+                turnIndicatorText.textContent = "Momo Team Turn";
+                turnIndicatorBadge.className = "inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold bg-blue-100 text-blue-700 mb-6 shadow-sm transition-all duration-300";
+                
+                team1Container.classList.add('border-2', 'border-blue-400', 'ring-4', 'ring-blue-100', 'scale-[1.02]', 'shadow-lg');
+                team1Container.classList.remove('opacity-70', 'border-transparent', 'shadow-sm', 'scale-100');
+                
+                team2Container.classList.remove('border-2', 'border-emerald-400', 'ring-4', 'ring-emerald-100', 'scale-[1.02]', 'shadow-lg');
+                team2Container.classList.add('opacity-70', 'border-emerald-100', 'shadow-sm', 'scale-100');
+            } else {
+                turnIndicatorText.textContent = "Shakib Team Turn";
+                turnIndicatorBadge.className = "inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold bg-emerald-100 text-emerald-700 mb-6 shadow-sm transition-all duration-300";
+                
+                team2Container.classList.add('border-2', 'border-emerald-400', 'ring-4', 'ring-emerald-100', 'scale-[1.02]', 'shadow-lg');
+                team2Container.classList.remove('opacity-70', 'border-transparent', 'shadow-sm', 'scale-100');
+                
+                team1Container.classList.remove('border-2', 'border-blue-400', 'ring-4', 'ring-blue-100', 'scale-[1.02]', 'shadow-lg');
+                team1Container.classList.add('opacity-70', 'border-blue-100', 'shadow-sm', 'scale-100');
+            }
+        }
+
+        function renderTeams() {
+            team1Count.textContent = team1.length;
+            if (team1.length === 0) {
+                team1List.innerHTML = `<li class="text-gray-400 text-sm italic text-center mt-4">Waiting for draft...</li>`;
+            } else {
+                team1List.innerHTML = team1.map(name => 
+                    `<li class="bg-white text-blue-800 px-3 py-2.5 rounded-xl font-medium shadow-sm border border-blue-50 flex items-center gap-3 animate-pop">
+                        <div class="bg-blue-100 text-blue-600 rounded-full p-1">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        ${name}
+                    </li>`
+                ).join('');
+            }
+
+            team2Count.textContent = team2.length;
+            if (team2.length === 0) {
+                team2List.innerHTML = `<li class="text-gray-400 text-sm italic text-center mt-4">Waiting for draft...</li>`;
+            } else {
+                team2List.innerHTML = team2.map(name => 
+                    `<li class="bg-white text-emerald-800 px-3 py-2.5 rounded-xl font-medium shadow-sm border border-emerald-50 flex items-center gap-3 animate-pop">
+                        <div class="bg-emerald-100 text-emerald-600 rounded-full p-1">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        ${name}
+                    </li>`
+                ).join('');
+            }
+        }
+
+        function removeName(index) {
+            if (isSpinning) return; 
+            
+            const removedName = namesPool.splice(index, 1)[0];
+            showToast(`"${removedName}" removed!`);
+            
+            if (currentlyPickedName === removedName) {
+                currentlyPickedName = null;
+                actionContainer.classList.add('hidden');
+                actionContainer.classList.remove('flex');
+                resultDisplay.textContent = 'Ready to Spin!';
+            }
+
+            renderPool();
+            
+            if (namesPool.length === 0 && !currentlyPickedName) {
+                resultDisplay.textContent = 'Ready?';
+            }
+        }
+
+        function renderPool() {
+            poolCount.textContent = namesPool.length;
+            
+            if (namesPool.length === 0) {
+                poolList.innerHTML = `<div class="w-full h-full flex items-center justify-center text-gray-400 text-sm italic">Pool is empty</div>`;
+                spinBtn.disabled = true;
+                return;
+            }
+
+            spinBtn.disabled = isSpinning; 
+            
+            poolList.innerHTML = '';
+            namesPool.forEach((name, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'inline-flex items-center gap-1.5 bg-white border border-indigo-100 text-indigo-700 pl-3 pr-2 py-1.5 rounded-lg text-sm font-medium shadow-sm break-all';
+                
+                const nameText = document.createElement('span');
+                nameText.textContent = name;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`;
+                removeBtn.className = 'text-indigo-400 hover:text-red-500 hover:bg-red-50 rounded-full p-0.5 transition-colors duration-200 focus:outline-none';
+                removeBtn.onclick = () => removeName(index);
+                removeBtn.title = "Remove name";
+
+                tag.appendChild(nameText);
+                tag.appendChild(removeBtn);
+                poolList.appendChild(tag);
+            });
+        }
+
+        // Event Listeners
+        addBtn.addEventListener('click', () => {
+            const rawInput = nameInput.value;
+            if (!rawInput.trim()) {
+                showToast('Please enter at least one name.');
+                return;
+            }
+
+            const newNames = rawInput.split('\n')
+                                   .map(name => name.trim())
+                                   .filter(name => name.length > 0);
+            
+            if (newNames.length === 0) return;
+
+            const uniqueNewNames = newNames.filter(name => !namesPool.includes(name) && !team1.includes(name) && !team2.includes(name));
+            
+            if (uniqueNewNames.length < newNames.length) {
+                showToast('Duplicates or already drafted names were ignored.');
+            } else {
+                showToast(`${newNames.length} names added!`);
+            }
+
+            namesPool = [...namesPool, ...uniqueNewNames];
+            
+            nameInput.value = '';
+            renderPool();
+            
+            if(!currentlyPickedName && !isSpinning) {
+                resultDisplay.textContent = 'Ready to Spin!';
+                resultDisplay.classList.remove('text-gray-400');
+            }
+        });
+
+        spinBtn.addEventListener('click', () => {
+            if (namesPool.length === 0 || isSpinning) return;
+
+            isSpinning = true;
+            spinBtn.disabled = true;
+            actionContainer.classList.add('hidden');
+            actionContainer.classList.remove('flex');
+            resultDisplay.classList.remove('animate-pop');
+            resultDisplay.classList.add('spinning-text');
+            
+            let spins = 0;
+            const maxSpins = 25; 
+            const spinInterval = 70; 
+            
+            const spinner = setInterval(() => {
+                const randomName = namesPool[Math.floor(Math.random() * namesPool.length)];
+                resultDisplay.textContent = randomName;
+                spins++;
+
+                if (spins >= maxSpins) {
+                    clearInterval(spinner);
+                    
+                    currentlyPickedName = namesPool[Math.floor(Math.random() * namesPool.length)];
+                    resultDisplay.textContent = currentlyPickedName;
+                    
+                    resultDisplay.classList.remove('spinning-text');
+                    void resultDisplay.offsetWidth; 
+                    resultDisplay.classList.add('animate-pop');
+                    
+                    actionContainer.classList.remove('hidden');
+                    actionContainer.classList.add('flex');
+                    isSpinning = false;
+                    spinBtn.disabled = false;
+                }
+            }, spinInterval);
+        });
+
+        confirmBtn.addEventListener('click', () => {
+            if (!currentlyPickedName) return;
+
+            // Add to current team
+            if (currentTurn === 1) {
+                team1.push(currentlyPickedName);
+            } else {
+                team2.push(currentlyPickedName);
+            }
+
+            // Remove from pool
+            namesPool = namesPool.filter(name => name !== currentlyPickedName);
+            
+            showToast(`Drafted to Team ${currentTurn}!`);
+            
+            // Switch Turn
+            currentTurn = currentTurn === 1 ? 2 : 1;
+            updateTurnUI();
+            
+            // Reset state
+            currentlyPickedName = null;
+            actionContainer.classList.add('hidden');
+            actionContainer.classList.remove('flex');
+            
+            if (namesPool.length > 0) {
+                resultDisplay.textContent = 'Spin Again!';
+            } else {
+                resultDisplay.textContent = 'Draft Complete!';
+            }
+            
+            renderPool();
+            renderTeams();
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            currentlyPickedName = null;
+            actionContainer.classList.add('hidden');
+            actionContainer.classList.remove('flex');
+            resultDisplay.textContent = 'Spin Again!';
+            // Turn does not switch on cancel
+        });
+
+        // Initialization
+        updateTurnUI();
+        renderPool();
+        renderTeams();
+
+    </script>
+</body>
+</html>
